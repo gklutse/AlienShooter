@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser-arcade-physics.min.js"></script>
+</head>
+<body>
+
+    <script>
+      const config = {
+        type: Phaser.AUTO,
+        width: window.innerWidth,
+        height: (window.innerHeight - 20),
+        backgroundColor: 0xb9eaff,
+        physics: {
+            default: 'arcade',
+            arcade: {
+                gravity: { y: 200 },
+                debug: false,
+                enableBody: true
+            }
+        },
+        scene: {
+            preload,
+            create,
+            update
+        }
+    };
+
+    const game = new Phaser.Game(config);
+
+    // gs for gameState
+    const gs = {
+      score: 0,
+      planelife: 100,
+      ep1Life: 30,
+      ep2Life: 30,
+      ep3Life: 30,
+      ep4Life: 30,
+      NumOfHpBomb:20,
+      NumOfDS: 0
+    };
+
+    function preload()
+    {
+        //load background image
+        this.load.image('sky', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/sky1.png');
+
+        //load the plane that shoots the enemies named HeroPlane
+        this.load.image('HeroPlane', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/plane1.png');
+
+        //load bullets of the plane
+        this.load.image('bullet', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/bullet1.png');
+
+        //load bullets of the enemy plane
+        this.load.image('bullet2', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/bullet2.png');
+
+        //load bomb from hero plane
+        this.load.image('hpbomb', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/hpbomb.png');
+
+        //load bomb of the enemy plane
+        this.load.image('bomb2', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/bomb2.png');
+
+         //load bomb of the enemy plane
+         this.load.image('bomb3', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/bomb3.png');
+
+        //load healthbox to increase planelife
+        this.load.image('HealthBox', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/HealthBox.png');
+
+        //load enemies of plane(1)
+        this.load.image('bug1', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/bug_1.png');
+
+        //load enemies of plane(2)
+        this.load.image('bug2', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/bug_2.png');
+
+        //load enemies of plane(3)
+        this.load.image('bug3', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/bug_3.png');
+
+        //load enemy plane
+        this.load.image('EnemyPlane', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/EnemyPlane.png');
+
+        //load enemy plane 2
+        this.load.image('EnemyPlane2', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/EnemyPlane2.png');
+
+        //load enemy plane 3
+        this.load.image('EnemyPlane3', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/EnemyPlane3.png');
+
+        //load enemy plane 4
+        this.load.image('EnemyPlane4', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/EnemyPlane4.png');
+
+        //load gunshot audio
+        this.load.audio('gunshot', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/gunshot2.mp3');
+
+        //load Boarders
+        this.load.image('Boarder', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/Boarder.png');
+
+        //load BombBox
+        this.load.image('BombBox', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/BombBox.png');
+
+        //load BombBlast
+        this.load.spritesheet('BombBlast', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/BombBlast.png', { frameWidth: 128, frameHeight: 127.8 });
+
+        //load BlastSound audio
+        this.load.audio('BlastSound', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/BlastSound1.mp3');
+
+        //load UnknownBox
+        this.load.image('UnknownBox', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/UnknownBox.png');
+
+        //load AddScoreBox
+        this.load.image('AddScoreBox', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/AddScoreBox.png');
+
+        //load SubtScoreBox
+        this.load.image('SubtScoreBox', 'http://localhost:8080/PHP_FD/PlaneShooter/assets/SubtScoreBox.png');
+
+
+    }
+
+    function create()
+    {
+        gs.active = true;
+        
+        // add background image(bg)
+        gs.bg = this.add.image(0, 0, 'sky').setOrigin(0, 0);
+        gs.bg.displayWidth = window.innerWidth;
+        gs.bg.displayHeight = window.innerHeight;
+
+        // add HeroPlane(hp)
+        gs.hp = this.physics.add.sprite((window.innerWidth/2), (window.innerHeight/2), 'HeroPlane').setScale(0.7).setOrigin(0.5, 0.0).setInteractive();
+        gs.hp.setCollideWorldBounds(true);
+
+        // add bullets
+        gs.blt = this.physics.add.group();
+        gs.blt.maxSize = -1;
+
+        // add bomb from hp
+        gs.hpbomb = this.physics.add.group();
+        gs.hpbomb.maxSize = -1;
+
+        //add gunshot sound
+        gs.gunshot = this.sound.add('gunshot');    
+
+
+        // adding enemies(1)
+        gs.bugs = this.physics.add.group();
+        gs.bugs.maxSize = -1;
+        function bugGen () {
+          const xCoord = Math.random() * (window.innerWidth - 32);
+          gs.bugs.create(xCoord, 30, 'bug1').setOrigin(0, 0);
+        }
+        // To generate enemies(1)
+        const bugGenLoop = this.time.addEvent({
+          delay: 200,
+          callback: bugGen,
+          callbackScope: this,
+          loop: true
+        });
+
+        // adding enemies(2)
+        gs.bugs2 = this.physics.add.group();
+        gs.bugs2.maxSize = -1;
+        function bug2Gen () {
+          const bug2GenxCoord = Math.random() * (window.innerWidth - 32);
+          gs.bugs2.create(bug2GenxCoord, 30, 'bug2').setOrigin(0, 0);
+        }
+        // To generate enemies(2)
+        gs.bug2GenLoop = this.time.addEvent({
+          delay: 500,
+          callback: bug2Gen,
+          callbackScope: this,
+          loop: true
+        });
+        gs.bug2GenLoop.paused = true;
+
+         // adding enemies(3)
+         gs.bugs3 = this.physics.add.group();
+        gs.bugs3.maxSize = -1;
+        function bug3Gen () {
+          const bug3GenxCoord = Math.random() * (window.innerWidth - 32);
+          gs.bugs3.create(bug3GenxCoord, 30, 'bug3').setOrigin(0, 0);
+        }
+        // To generate enemies(3)
+        gs.bug3GenLoop = this.time.addEvent({
+          delay: 800,
+          callback: bug3Gen,
+          callbackScope: this,
+          loop: true
+        });
+        gs.bug3GenLoop.paused = true;
+        
+
+        //add HealthBox
+        gs.healthBox = this.physics.add.group();
+        gs.healthBox.maxSize = -1;
+        function healthBoxGen () {
+          const xCoord1 = Math.random() * (window.innerWidth - 30);
+          gs.healthBox.create((gs.hpX), 30, 'HealthBox').setScale(0.5).setOrigin(0, 0);
+        }
+
+        // To generate HealthBox
+        const healthBoxGenLoop = this.time.addEvent({
+          delay: ((Math.floor(Math.random() * 3) +2) * 15000),
+          callback: healthBoxGen,
+          callbackScope: this,
+          loop: true
+        });
+
+        //add AddScoreBox
+        gs.addScoreBox = this.physics.add.group();
+        gs.addScoreBox.maxSize = -1;
+        function addScoreBoxGen () {
+          const xCoord4 = Math.random() * (window.innerWidth - 30);
+          gs.addScoreBox.create((xCoord4), 30, 'AddScoreBox').setScale(0.9).setOrigin(0, 0);
+        }
+
+        // To generate addScoreBox
+        const addScoreBoxGenLoop = this.time.addEvent({
+          delay: ((Math.floor(Math.random() * 2) +3) * 30000),
+          callback: addScoreBoxGen,
+          callbackScope: this,
+          loop: true
+        });
+
+        //add SubtScoreBox
+        gs.subtScoreBox = this.physics.add.group();
+        gs.subtScoreBox.maxSize = -1;
+        function subtScoreBoxGen () {
+          const xCoord5 = Math.random() * (window.innerWidth - 30);
+          gs.subtScoreBox.create((xCoord5), 30, 'SubtScoreBox').setScale(0.9).setOrigin(0, 0);
+        }
+
+        // To generate SubtScoreBox
+        const subtScoreBoxGenLoop = this.time.addEvent({
+          delay: ((Math.floor(Math.random() * 3) +2) * 30000),
+          callback:subtScoreBoxGen,
+          callbackScope: this,
+          loop: true
+        });
+
+
+        //add BombBox
+        gs.bombBox = this.physics.add.group();
+        gs.bombBox.maxSize = -1;
+
+        // generate bombBox function
+        function bombBoxGen () {
+          const xCoord2 = Math.random() * (window.innerWidth - 40);
+          gs.bombBox.create(xCoord2, 30, 'BombBox').setScale(0.8).setOrigin(0, 0);
+        }
+
+        // To generate bombBox
+        const bombBoxGenLoop = this.time.addEvent({
+          delay: ((Math.floor(Math.random() * 4) +1) * 15000),
+          callback: bombBoxGen,
+          callbackScope: this,
+          loop: true
+        });
+
+        // create bombBlast and add bombBlast sound
+        gs.bombBlast = this.physics.add.staticGroup();
+        gs.bombBlast.maxSize = -1;
+        gs.blastSound = this.sound.add('BlastSound');
+
+        // genetate bomblast function
+        bombBlastGen = (xPos, yPos) => {
+            gs.bombBlast.create(xPos, yPos, 'BombBlast').refreshBody();
+        }
+
+        // create bombBlast animation
+        this.anims.create({
+              key: 'blast',
+              frames: this.anims.generateFrameNumbers('BombBlast', { start: 0, end: 39 }),
+              frameRate: 10,
+              repeat: 0,
+              hideOnComplete: true
+        });
+
+        //add UnknownBox
+        gs.unknownBox = this.physics.add.group();
+        gs.unknownBox.maxSize = -1;
+        function unknownBoxGen () {
+          const xCoord3 = Math.random() * (window.innerWidth - 30);
+          gs.unknownBox.create(xCoord3, 30, 'UnknownBox').setScale(0.75).setOrigin(0, 0);
+        }
+
+        // To generate UnknownBox
+        const unknownBoxGenLoop = this.time.addEvent({
+          delay: ((Math.floor(Math.random() * 3) +1) * 15000),
+          callback: unknownBoxGen,
+          callbackScope: this,
+          loop: true
+        });
+
+        // Add Enemy Plane(ep1)
+        gs.ep1 = this.physics.add.staticSprite(50, 105, 'EnemyPlane').setScale(0.7).setOrigin(0.5, 1).setActive(false).setVisible(false).refreshBody();
+        gs.moveEnemyPlane = this.tweens.add({
+          targets: gs.ep1,
+          x: (window.innerWidth - 90),
+          ease: 'Linear',
+          duration: 9000,
+          repeat: -1,
+          yoyo: true,
+        });
+        gs.moveEnemyPlane.pause();
+        // Add Enemy Plane bullets
+        gs.enemyPlaneBlt = this.physics.add.group();
+        enemyPlaneBltGen = () => {
+            if (gs.moveEnemyPlane.hasStarted == true && gs.ep1.visible == true) {
+              gs.enemyPlaneBlt.create(gs.ep1X, gs.ep1Y, 'bullet2').setScale(0.5).setOrigin(0.5, 0);
+            }
+        }
+        const enemyPlaneBltGenLoop = this.time.addEvent({
+          delay: 800, // ((Math.floor(Math.random() * 3) +1) * 15000),
+          callback: enemyPlaneBltGen,
+          callbackScope: this,
+          loop: true
+        });
+        enemyPlaneBltGenLoop.paused == true;
+
+        // Add Enemy Plane(ep2)
+        gs.ep2 = this.physics.add.staticSprite(50, 105, 'EnemyPlane2').setScale(0.7).setOrigin(0.5, 1).setActive(false).setVisible(false).refreshBody();
+        gs.moveEnemyPlane2 = this.tweens.add({
+          targets: gs.ep2,
+          x: (window.innerWidth - 90),
+          ease: 'Linear',
+          duration: 9000,
+          repeat: -1,
+          yoyo: true,
+        });
+        gs.moveEnemyPlane2.pause();
+        // Add Enemy Plane bombs
+        gs.enemyPlane2Bomb = this.physics.add.group();
+        enemyPlane2BombGen = () => {
+            if (gs.moveEnemyPlane2.hasStarted == true && gs.ep2.visible == true) {
+              gs.enemyPlane2Bomb.create(gs.ep2X, gs.ep2Y, 'bomb2').setScale(0.5).setOrigin(0.5, 0);
+            }
+        }
+        const enemyPlane2BombGenLoop = this.time.addEvent({
+          delay: 1000, // ((Math.floor(Math.random() * 3) +1) * 15000),
+          callback: enemyPlane2BombGen,
+          callbackScope: this,
+          loop: true
+        });
+        enemyPlane2BombGenLoop.paused == true;
+
+        // Add Enemy Plane(ep3)
+        gs.ep3 = this.physics.add.staticSprite(50, 105, 'EnemyPlane3').setScale(0.7).setOrigin(0.5, 1).setActive(false).setVisible(false).refreshBody();
+        gs.moveEnemyPlane3 = this.tweens.add({
+          targets: gs.ep3,
+          x: (window.innerWidth - 90),
+          ease: 'Linear',
+          duration: 9000,
+          repeat: -1,
+          yoyo: true,
+        });
+        gs.moveEnemyPlane3.pause();
+        // Add Enemy Plane bombs
+        gs.enemyPlane3Bomb = this.physics.add.group();
+        enemyPlane3BombGen = () => {
+            if (gs.moveEnemyPlane3.hasStarted == true && gs.ep3.visible == true) {
+              gs.enemyPlane3Bomb.create(gs.ep3X, gs.ep3Y, 'bomb3').setScale(0.5).setOrigin(0.5, 0);
+            }
+        }
+        const enemyPlane3BombGenLoop = this.time.addEvent({
+          delay: 1000, // ((Math.floor(Math.random() * 3) +1) * 15000),
+          callback: enemyPlane3BombGen,
+          callbackScope: this,
+          loop: true
+        });
+        enemyPlane3BombGenLoop.paused == true;
+
+        // Add Enemy Plane(ep4)
+        gs.ep4 = this.physics.add.staticSprite(50, 105, 'EnemyPlane4').setScale(0.7).setOrigin(0.5, 1).setActive(false).setVisible(false).refreshBody();
+        gs.moveEnemyPlane4 = this.tweens.add({
+          targets: gs.ep4,
+          x: (window.innerWidth - 90),
+          ease: 'Linear',
+          duration: 9000,
+          repeat: -1,
+          yoyo: true,
+        });
+        gs.moveEnemyPlane4.pause();
+        // Add Enemy Plane bombs and bullets
+        gs.enemyPlane4Blt = this.physics.add.group();
+        gs.enemyPlane4Bomb1 = this.physics.add.group();
+        gs.enemyPlane4Bomb2 = this.physics.add.group();
+        enemyPlane4BltBombGen = () => {
+            if (gs.moveEnemyPlane4.hasStarted == true && gs.ep4.visible == true) {
+                gs.ep4bbg = (Math.floor(Math.random() * 3) +1);
+                if (gs.ep4bbg == 1) {
+                    gs.enemyPlane4Blt.create(gs.ep4X, gs.ep4Y, 'bullet2').setScale(0.5).setOrigin(0.5, 0);
+                } else if (gs.ep4bbg == 2) {
+                    gs.enemyPlane4Bomb1.create(gs.ep4X, gs.ep4Y, 'bomb2').setScale(0.5).setOrigin(0.5, 0);
+                } else if (gs.ep4bbg == 3) {
+                  gs.enemyPlane4Bomb2.create(gs.ep4X, gs.ep4Y, 'bomb3').setScale(0.5).setOrigin(0.5, 0);
+                }
+            }
+        }
+        const enemyPlane4BltBombGenLoop = this.time.addEvent({
+          delay: 1000, // ((Math.floor(Math.random() * 3) +1) * 15000),
+          callback: enemyPlane4BltBombGen,
+          callbackScope: this,
+          loop: true
+        });
+        enemyPlane4BltBombGenLoop.paused == true;
+
+        // Displays initial Score: 0 text
+        gs.scoreText = this.add.text(15, 15, 'Score: 0', { fontSize: '15px', fill: '#000000' });
+
+        // Display life of plane
+        gs.BgLRect = this.add.rectangle((window.innerWidth - 140), 15, 110, 20, 0xfcba03).setOrigin(0);
+        gs.WhiteLRect = this.add.rectangle((window.innerWidth - 135), 20, 100, 10, 0xffffff).setOrigin(0);
+        gs.LRect = this.add.rectangle((window.innerWidth - 135), 20, 100, 10, 0x03fc20).setOrigin(0);
+
+        // Display life of enemy plane
+        gs.BgLRect1 = this.add.rectangle((gs.ep1.x), (gs.ep1.y - gs.ep1.displayHeight-5), 36, 10, 0xfcba03).setOrigin(0.5).setVisible(false);
+        gs.WhiteLRect1 = this.add.rectangle((gs.ep1.x-15), (gs.ep1.y - gs.ep1.displayHeight-5), 30, 5, 0xffffff).setOrigin(0, 0.5).setVisible(false);
+        gs.LRect1 = this.add.rectangle((gs.ep1.x-15), (gs.ep1.y - gs.ep1.displayHeight-5), 30, 5, 0x03fc20).setOrigin(0, 0.5).setVisible(false);
+
+        // Display life of enemy plane 2
+        gs.BgLRect2 = this.add.rectangle((gs.ep2.x), (gs.ep2.y - gs.ep2.displayHeight-5), 36, 10, 0xfcba03).setOrigin(0.5).setVisible(false);
+        gs.WhiteLRect2 = this.add.rectangle((gs.ep2.x-15), (gs.ep2.y - gs.ep2.displayHeight-5), 30, 5, 0xffffff).setOrigin(0, 0.5).setVisible(false);
+        gs.LRect2 = this.add.rectangle((gs.ep2.x-15), (gs.ep2.y - gs.ep2.displayHeight-5), 30, 5, 0x03fc20).setOrigin(0, 0.5).setVisible(false);
+
+        // Display life of enemy plane 3
+        gs.BgLRect3 = this.add.rectangle((gs.ep3.x), (gs.ep3.y - gs.ep3.displayHeight-5), 36, 10, 0xfcba03).setOrigin(0.5).setVisible(false);
+        gs.WhiteLRect3 = this.add.rectangle((gs.ep3.x-15), (gs.ep3.y - gs.ep3.displayHeight-5), 30, 5, 0xffffff).setOrigin(0, 0.5).setVisible(false);
+        gs.LRect3 = this.add.rectangle((gs.ep3.x-15), (gs.ep3.y - gs.ep3.displayHeight-5), 30, 5, 0x03fc20).setOrigin(0, 0.5).setVisible(false);
+
+        // Display life of enemy plane 4
+        gs.BgLRect4 = this.add.rectangle((gs.ep4.x), (gs.ep4.y - gs.ep4.displayHeight-5), 36, 10, 0xfcba03).setOrigin(0.5).setVisible(false);
+        gs.WhiteLRect4 = this.add.rectangle((gs.ep4.x-15), (gs.ep4.y - gs.ep4.displayHeight-5), 30, 5, 0xffffff).setOrigin(0, 0.5).setVisible(false);
+        gs.LRect4 = this.add.rectangle((gs.ep4.x-15), (gs.ep4.y - gs.ep4.displayHeight-5), 30, 5, 0x03fc20).setOrigin(0, 0.5).setVisible(false);
+
+
+        // interaction between HealthBox and enemies(1)
+        this.physics.add.overlap(gs.bugs, gs.healthBox, function(bug, HB){
+          bug.destroy();
+        });
+
+         // interaction between AddScoreBox and enemies(1)
+         this.physics.add.overlap(gs.bugs, gs.addScoreBox, function(bug, asb){
+          bug.destroy();
+        });
+
+        // interaction between SubtScoreBox and enemies(1)
+        this.physics.add.overlap(gs.bugs, gs.subtScoreBox, function(bug, ssb){
+          bug.destroy();
+        });
+
+         // interaction between bombBox and enemies(1)
+         this.physics.add.overlap(gs.bugs, gs.bombBox, function(bug, bb){
+          bug.destroy();
+        });
+
+        // interaction between unknownBox and enemies(1)
+        this.physics.add.overlap(gs.bugs, gs.unknownBox, function(bug, ub){
+          bug.destroy();
+        });
+
+        // interaction between bombBlast and enemies(bugs)(1)
+        this.physics.add.overlap(gs.bugs, gs.bombBlast, function(bug, bbb){
+          bug.destroy();
+          // Add your code below:
+          gs.score += 1;
+          gs.scoreText.setText(`Score: ${gs.score}`);
+        });
+        
+        // interaction between HealthBox and enemies(2)
+        this.physics.add.overlap(gs.bugs2, gs.healthBox, function(bug, HB){
+          bug.destroy();
+        });
+
+         // interaction between AddScoreBox and enemies(2)
+         this.physics.add.overlap(gs.bugs2, gs.addScoreBox, function(bug, asb){
+          bug.destroy();
+        });
+
+        // interaction between SubtScoreBox and enemies(2)
+        this.physics.add.overlap(gs.bugs2, gs.subtScoreBox, function(bug, ssb){
+          bug.destroy();
+        });
+
+         // interaction between bombBox and enemies(2)
+         this.physics.add.overlap(gs.bugs2, gs.bombBox, function(bug, bb){
+          bug.destroy();
+        });
+
+        // interaction between unknownBox and enemies(2)
+        this.physics.add.overlap(gs.bugs2, gs.unknownBox, function(bug, ub){
+          bug.destroy();
+        });
+
+        // interaction between bombBlast and enemies(bugs)(2)
+        this.physics.add.overlap(gs.bugs2, gs.bombBlast, function(bug, bbb){
+          bug.destroy();
+          // Add your code below:
+          gs.score += 5;
+          gs.scoreText.setText(`Score: ${gs.score}`);
+        });
+
+        // interaction between HealthBox and enemies(3)
+        this.physics.add.overlap(gs.bugs3, gs.healthBox, function(bug, HB){
+          bug.destroy();
+        });
+
+         // interaction between AddScoreBox and enemies(3)
+         this.physics.add.overlap(gs.bugs3, gs.addScoreBox, function(bug, asb){
+          bug.destroy();
+        });
+
+        // interaction between SubtScoreBox and enemies(3)
+        this.physics.add.overlap(gs.bugs3, gs.subtScoreBox, function(bug, ssb){
+          bug.destroy();
+        });
+
+         // interaction between bombBox and enemies(3)
+         this.physics.add.overlap(gs.bugs3, gs.bombBox, function(bug, bb){
+          bug.destroy();
+        });
+
+        // interaction between unknownBox and enemies(3)
+        this.physics.add.overlap(gs.bugs3, gs.unknownBox, function(bug, ub){
+          bug.destroy();
+        });
+
+        // interaction between bombBlast and enemies(bugs)(3)
+        this.physics.add.overlap(gs.bugs3, gs.bombBlast, function(bug, bbb){
+          bug.destroy();
+          // Add your code below:
+          gs.score += 10;
+          gs.scoreText.setText(`Score: ${gs.score}`);
+        });
+        
+        
+
+        // interaction between HealthBox and HeroPlane
+        this.physics.add.overlap(gs.hp, gs.healthBox, function(HP, HB){
+          HB.destroy();
+          gs.planelife += 30;
+          if (gs.planelife >= 100) {
+            gs.planelife = 100;
+          }
+        });
+    
+        // interaction between AddScoreBox and HeroPlane
+        this.physics.add.overlap(gs.hp, gs.addScoreBox, function(HP, asb){
+          asb.destroy();
+          gs.score += 100;
+          gs.scoreText.setText(`Score: ${gs.score}`);
+        });
+
+        // interaction between SubtScoreBox and HeroPlane
+        this.physics.add.overlap(gs.hp, gs.subtScoreBox, function(HP, ssb){
+          ssb.destroy();
+          gs.score -= 100;
+          if (gs.score <= 0){
+                gs.score = 0;
+          }
+          gs.scoreText.setText(`Score: ${gs.score}`);
+        });
+
+         // interaction between bombBox and bullets
+         this.physics.add.overlap(gs.blt, gs.bombBox, function(blt, bb){
+          bombBlastGen(bb.x, bb.y);
+          blt.destroy();
+          bb.destroy();
+          gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+          });
+        });
+
+        // interaction between bombBox and hpbomb
+        this.physics.add.overlap(gs.hpbomb, gs.bombBox, function(hpb, bb){
+          bombBlastGen(bb.x, bb.y);
+          hpb.destroy();
+          bb.destroy();
+          gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+          });
+        });
+
+
+        // interaction between bombBox and heroplane
+        this.physics.add.overlap(gs.hp, gs.bombBox, function(hp, bb){
+          bombBlastGen(bb.x, bb.y);
+          bb.destroy();
+          gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+          });
+          // subtract 20 from life
+          gs.planelife -= 20;
+          if (gs.planelife <= 0){
+              gs.planelife = 0;
+              endThisGame();
+          }
+        });
+
+        
+        // interaction between unknownBox and HeroPlane
+        this.physics.add.overlap(gs.hp, gs.unknownBox, (HP, UB) => {
+          gs.unknownBoxRnd = (Math.floor(Math.random() * 5) +1);
+          if (gs.unknownBoxRnd == 1){
+            // add 30 to life
+            gs.planelife += 30;
+            if (gs.planelife >= 100) {
+              gs.planelife = 100;
+            }
+            UB.destroy();
+          } else if (gs.unknownBoxRnd == 2){
+            // subtract 30 from life
+            gs.planelife -= 30;
+            if (gs.planelife <= 0){
+                gs.planelife = 0;
+                endThisGame();
+            }
+            UB.destroy();
+          } else if (gs.unknownBoxRnd == 3){
+              // add 100 to your score
+            gs.score += 100;
+            gs.scoreText.setText(`Score: ${gs.score}`);
+            UB.destroy();
+          } else if (gs.unknownBoxRnd == 4) {
+              // subtract 100 from your score
+            gs.score -= 100;
+            if (gs.score <= 0){
+                gs.score = 0;
+            }
+            gs.scoreText.setText(`Score: ${gs.score}`);
+            UB.destroy();
+          } else if (gs.unknownBoxRnd == 5) {
+              // blast a bomb
+            bombBlastGen(UB.x, UB.y);
+            UB.destroy();
+            gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+            });
+            // subtract 20 from life
+            gs.planelife -= 20;
+            if (gs.planelife <= 0){
+              gs.planelife = 0;
+              endThisGame();
+            }
+          }   
+        });
+
+        // Add interactiveness between bullets and enemies(1):
+        this.physics.add.collider(gs.bugs, gs.blt, function(bug, blt){
+          bug.destroy();
+          blt.destroy();
+          // Add your code below:
+          gs.score += 1;
+          gs.scoreText.setText(`Score: ${gs.score}`);
+        });
+
+        // Add interactiveness between bullets and enemies(2):
+        this.physics.add.collider(gs.bugs2, gs.blt, function(bug, blt){
+          bug.destroy();
+          blt.destroy();
+          // Add your code below:
+          gs.score += 5;
+          gs.scoreText.setText(`Score: ${gs.score}`);
+        });
+
+        // Add interactiveness between bullets and enemies(3):
+        this.physics.add.collider(gs.bugs3, gs.blt, function(bug, blt){
+          bug.destroy();
+          blt.destroy();
+          // Add your code below:
+          gs.score += 10;
+          gs.scoreText.setText(`Score: ${gs.score}`);
+        });
+
+         // Add interactiveness between hpbomb and enemies(1):
+         this.physics.add.collider(gs.bugs, gs.hpbomb, function(bug, hpb){
+          bombBlastGen(bug.x, bug.y);
+            gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+            });
+          bug.destroy();
+          hpb.destroy();
+          // Add your code below:
+          gs.score += 1;
+          gs.scoreText.setText(`Score: ${gs.score}`);
+        });
+
+        // Add interactiveness between hpbomb and enemies(2):
+        this.physics.add.collider(gs.bugs2, gs.hpbomb, function(bug, hpb){
+          bombBlastGen(bug.x, bug.y);
+            gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+            });
+          bug.destroy();
+          hpb.destroy();
+          // Add your code below:
+          gs.score += 5;
+          gs.scoreText.setText(`Score: ${gs.score}`);
+        });
+
+        // Add interactiveness between hpbomb and enemies(3):
+        this.physics.add.collider(gs.bugs3, gs.hpbomb, function(bug, hpb){
+          bombBlastGen(bug.x, bug.y);
+            gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+            });
+          bug.destroy();
+          hpb.destroy();
+          // Add your code below:
+          gs.score += 10;
+          gs.scoreText.setText(`Score: ${gs.score}`);
+        });
+
+        // Add interactiveness between bullets from Hero Plane and enemy plane(ep1): 
+        this.physics.add.overlap(gs.ep1, gs.blt, (ep, blt) => {
+         if (gs.ep1.visible == true) {
+          blt.destroy();
+          gs.ep1Life -= 1;
+          if (gs.ep1Life <= 0 && gs.ep1.visible == true) {   
+            gs.ep1Life = 0;
+            gs.score += 100;
+            gs.scoreText.setText(`Score: ${gs.score}`);
+            gs.ep1.visible = false;
+            gs.ep1.active = false;
+            gs.moveEnemyPlane.pause();
+            enemyPlaneBltGenLoop.paused = true;
+            gs.BgLRect1.visible = false;
+            gs.WhiteLRect1.visible = false;
+            gs.LRect1.visible = false;
+            gs.BgLRect1.active = false;
+            gs.WhiteLRect1.active = false;
+            gs.LRect1.active = false;
+            bombBlastGen(gs.ep1X, gs.ep1Y);
+            gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+            });
+            ChangeEnemyPlanesLoopFunc();
+          }
+         }
+        });
+
+        // Add interactiveness between bullets from Hero Plane and enemy plane(ep2): 
+        this.physics.add.overlap(gs.ep2, gs.blt, (ep, blt) => {
+         if (gs.ep2.visible == true) {
+          blt.destroy();
+          gs.ep2Life -= 2;
+          if (gs.ep2Life <= 0 && gs.ep2.visible == true) {   
+            gs.ep2Life = 0;
+            gs.score += 150;
+            gs.scoreText.setText(`Score: ${gs.score}`);
+            gs.ep2.visible = false;
+            gs.ep2.active = false;
+            gs.moveEnemyPlane2.pause();
+            enemyPlane2BombGenLoop.paused = true;
+            gs.BgLRect2.visible = false;
+            gs.WhiteLRect2.visible = false;
+            gs.LRect2.visible = false;
+            gs.BgLRect2.active = false;
+            gs.WhiteLRect2.active = false;
+            gs.LRect2.active = false;
+            bombBlastGen(gs.ep2X, gs.ep2Y);
+            gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+            });
+            ChangeEnemyPlanesLoopFunc();
+          }
+         }
+        });
+
+        // Add interactiveness between bullets from Hero Plane and enemy plane(ep3): 
+        this.physics.add.overlap(gs.ep3, gs.blt, (ep, blt) => {
+         if (gs.ep3.visible == true) {
+          blt.destroy();
+          gs.ep3Life -= 3;
+          if (gs.ep3Life <= 0 && gs.ep3.visible == true) {   
+            gs.ep3Life = 0;
+            gs.score += 200;
+            gs.scoreText.setText(`Score: ${gs.score}`);
+            gs.ep3.visible = false;
+            gs.ep3.active = false;
+            gs.moveEnemyPlane3.pause();
+            enemyPlane3BombGenLoop.paused = true;
+            gs.BgLRect3.visible = false;
+            gs.WhiteLRect3.visible = false;
+            gs.LRect3.visible = false;
+            gs.BgLRect3.active = false;
+            gs.WhiteLRect3.active = false;
+            gs.LRect3.active = false;
+            bombBlastGen(gs.ep3X, gs.ep3Y);
+            gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+            });
+            ChangeEnemyPlanesLoopFunc();
+          }
+         }
+        });
+
+        // Add interactiveness between bullets from Hero Plane and enemy plane(ep4): 
+        this.physics.add.overlap(gs.ep4, gs.blt, (ep, blt) => {
+         if (gs.ep4.visible == true) {
+          blt.destroy();
+          gs.ep4Life -= 3;
+          if (gs.ep4Life <= 0 && gs.ep4.visible == true) {   
+            gs.ep4Life = 0;
+            gs.score += 300;
+            gs.scoreText.setText(`Score: ${gs.score}`);
+            gs.ep4.visible = false;
+            gs.ep4.active = false;
+            gs.moveEnemyPlane4.pause();
+            enemyPlane4BltBombGenLoop.paused = true;
+            gs.BgLRect4.visible = false;
+            gs.WhiteLRect4.visible = false;
+            gs.LRect4.visible = false;
+            gs.BgLRect4.active = false;
+            gs.WhiteLRect4.active = false;
+            gs.LRect4.active = false;
+            bombBlastGen(gs.ep4X, gs.ep4Y);
+            gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+            });
+            ChangeEnemyPlanesLoopFunc();
+          }
+         }
+        });
+
+                // Add interactiveness between bombs from Hero Plane and enemy plane(ep1): 
+        this.physics.add.overlap(gs.ep1, gs.hpbomb, (ep, hpb) => {
+         if (gs.ep1.visible == true) {
+          hpb.destroy();
+          bombBlastGen(gs.ep1X, gs.ep1Y);
+            gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+            });
+          gs.ep1Life -= 10;
+          if (gs.ep1Life <= 0 && gs.ep1.visible == true) {   
+            gs.ep1Life = 0;
+            gs.score += 100;
+            gs.scoreText.setText(`Score: ${gs.score}`);
+            gs.ep1.visible = false;
+            gs.ep1.active = false;
+            gs.moveEnemyPlane.pause();
+            enemyPlaneBltGenLoop.paused = true;
+            gs.BgLRect1.visible = false;
+            gs.WhiteLRect1.visible = false;
+            gs.LRect1.visible = false;
+            gs.BgLRect1.active = false;
+            gs.WhiteLRect1.active = false;
+            gs.LRect1.active = false;
+            ChangeEnemyPlanesLoopFunc();
+          }
+         }
+        });
+
+        // Add interactiveness between bomb from Hero Plane and enemy plane(ep2): 
+        this.physics.add.overlap(gs.ep2, gs.hpbomb, (ep, hpb) => {
+         if (gs.ep2.visible == true) {
+          hpb.destroy();
+          bombBlastGen(gs.ep2X, gs.ep2Y);
+            gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+            });
+          gs.ep2Life -= 10;
+          if (gs.ep2Life <= 0 && gs.ep2.visible == true) {   
+            gs.ep2Life = 0;
+            gs.score += 150;
+            gs.scoreText.setText(`Score: ${gs.score}`);
+            gs.ep2.visible = false;
+            gs.ep2.active = false;
+            gs.moveEnemyPlane2.pause();
+            enemyPlane2BombGenLoop.paused = true;
+            gs.BgLRect2.visible = false;
+            gs.WhiteLRect2.visible = false;
+            gs.LRect2.visible = false;
+            gs.BgLRect2.active = false;
+            gs.WhiteLRect2.active = false;
+            gs.LRect2.active = false;
+            ChangeEnemyPlanesLoopFunc();
+          }
+         }
+        });
+
+        // Add interactiveness between bomb from Hero Plane and enemy plane(ep3): 
+        this.physics.add.overlap(gs.ep3, gs.hpbomb, (ep, hpb) => {
+         if (gs.ep3.visible == true) {
+          hpb.destroy();
+          bombBlastGen(gs.ep3X, gs.ep3Y);
+            gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+            });
+          gs.ep3Life -= 10;
+          if (gs.ep3Life <= 0 && gs.ep3.visible == true) {   
+            gs.ep3Life = 0;
+            gs.score += 200;
+            gs.scoreText.setText(`Score: ${gs.score}`);
+            gs.ep3.visible = false;
+            gs.ep3.active = false;
+            gs.moveEnemyPlane3.pause();
+            enemyPlane3BombGenLoop.paused = true;
+            gs.BgLRect3.visible = false;
+            gs.WhiteLRect3.visible = false;
+            gs.LRect3.visible = false;
+            gs.BgLRect3.active = false;
+            gs.WhiteLRect3.active = false;
+            gs.LRect3.active = false;
+            ChangeEnemyPlanesLoopFunc();
+          }
+         }
+        });
+
+        // Add interactiveness between bomb from Hero Plane and enemy plane(ep4): 
+        this.physics.add.overlap(gs.ep4, gs.hpbomb, (ep, hpb) => {
+         if (gs.ep4.visible == true) {
+          hpb.destroy();
+          bombBlastGen(gs.ep4X, gs.ep4Y);
+            gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+            });
+          gs.ep4Life -= 10;
+          if (gs.ep4Life <= 0 && gs.ep4.visible == true) {   
+            gs.ep4Life = 0;
+            gs.score += 300;
+            gs.scoreText.setText(`Score: ${gs.score}`);
+            gs.ep4.visible = false;
+            gs.ep4.active = false;
+            gs.moveEnemyPlane4.pause();
+            enemyPlane4BltBombGenLoop.paused = true;
+            gs.BgLRect4.visible = false;
+            gs.WhiteLRect4.visible = false;
+            gs.LRect4.visible = false;
+            gs.BgLRect4.active = false;
+            gs.WhiteLRect4.active = false;
+            gs.LRect4.active = false;
+            ChangeEnemyPlanesLoopFunc();
+          }
+         }
+        });
+
+        // Add interactiveness between plane and enemies(1)
+        this.physics.add.overlap(gs.hp, gs.bugs, (hero, bug) => {
+            bug.destroy();
+            gs.planelife -= 5;
+            if (gs.planelife <= 0){
+                gs.planelife = 0;
+                endThisGame();
+            }
+        });
+
+        // Add interactiveness between plane and enemies(2)
+        this.physics.add.overlap(gs.hp, gs.bugs2, (hero, bug) => {
+            bug.destroy();
+            gs.planelife -= 7;
+            if (gs.planelife <= 0){
+                gs.planelife = 0;
+                endThisGame();
+            }
+        });
+
+        // Add interactiveness between plane and enemies(3)
+        this.physics.add.overlap(gs.hp, gs.bugs3, (hero, bug) => {
+            bug.destroy();
+            gs.planelife -= 10;
+            if (gs.planelife <= 0){
+                gs.planelife = 0;
+                endThisGame();
+            }
+        });
+
+         // Add interactiveness between plane and gs.enemyPlaneBlt
+         this.physics.add.overlap(gs.hp, gs.enemyPlaneBlt, (hero, epb) => {
+            epb.destroy();
+            gs.planelife -= 2;
+            if (gs.planelife <= 0){
+                gs.planelife = 0;
+                endThisGame();
+            }
+        });
+
+        // Add interactiveness between plane and gs.enemyPlane2Bomb
+        this.physics.add.overlap(gs.hp, gs.enemyPlane2Bomb, (hero, epb) => {
+            bombBlastGen(epb.x, epb.y);
+            gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+            });
+            epb.destroy();
+            gs.planelife -= 10;
+            if (gs.planelife <= 0){
+                gs.planelife = 0;
+                endThisGame();
+            }
+        });
+
+        // Add interactiveness between plane and gs.enemyPlane3Bomb
+        this.physics.add.overlap(gs.hp, gs.enemyPlane3Bomb, (hero, epb) => {
+            bombBlastGen(epb.x, epb.y);
+            gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+            });
+            epb.destroy();
+            gs.planelife -= 20;
+            if (gs.planelife <= 0){
+                gs.planelife = 0;
+                endThisGame();
+            }
+        });
+
+        // Add interactiveness between plane and gs.enemyPlane4Blt
+        this.physics.add.overlap(gs.hp, gs.enemyPlane4Blt, (hero, epb) => {
+            bombBlastGen(epb.x, epb.y);
+            gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+            });
+            epb.destroy();
+            gs.planelife -= 2;
+            if (gs.planelife <= 0){
+                gs.planelife = 0;
+                endThisGame();
+            }
+        });
+
+        // Add interactiveness between plane and gs.enemyPlane4Bomb1
+        this.physics.add.overlap(gs.hp, gs.enemyPlane4Bomb1, (hero, epb) => {
+            bombBlastGen(epb.x, epb.y);
+            gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+            });
+            epb.destroy();
+            gs.planelife -= 10;
+            if (gs.planelife <= 0){
+                gs.planelife = 0;
+                endThisGame();
+            }
+        });
+
+        // Add interactiveness between plane and gs.enemyPlane4Bomb2
+        this.physics.add.overlap(gs.hp, gs.enemyPlane4Bomb2, (hero, epb) => {
+            bombBlastGen(epb.x, epb.y);
+            gs.bombBlast.children.iterate(function (child) {
+              if (child.visible == true && child.anims.isPlaying == false) {
+                  child.anims.play('blast', true);
+                  gs.blastSound.play();
+              }
+            });
+            epb.destroy();
+            gs.planelife -= 20;
+            if (gs.planelife <= 0){
+                gs.planelife = 0;
+                endThisGame();
+            }
+        });
+
+
+        // what makes the bullets shot
+        this.input.keyboard.on('keyup-SPACE', () => {
+            gs.blt.create(gs.hpX, gs.hpY, 'bullet').setScale(0.5).setOrigin(0.5, 1);
+            gs.gunshot.play();       
+        });
+        // what causes the bomb
+        this.input.keyboard.on('keyup-B', () => {
+          if (gs.NumOfHpBomb > 0) {
+            gs.hpbomb.create(gs.hpX, gs.hpY, 'hpbomb').setScale(0.5).setOrigin(0.5, 1);
+            gs.gunshot.play();    
+            gs.NumOfHpBomb -= 1;
+          }   
+        });
+
+        //pause and resume game
+        this.input.keyboard.on('keydown-P', () => {
+            bugGenLoop.paused = true;
+            gs.bug2GenLoop.paused = true;
+            gs.bug3GenLoop.paused = true;
+            healthBoxGenLoop.paused = true;
+            bombBoxGenLoop.paused = true;
+            unknownBoxGenLoop.paused = true;
+            addScoreBoxGenLoop.paused = true;
+            subtScoreBoxGenLoop.paused = true;
+            enemyPlaneBltGenLoop.paused = true;
+            enemyPlane2BombGenLoop.paused = true;
+            enemyPlane3BombGenLoop.paused = true;
+            enemyPlane4BltBombGenLoop.paused = true;
+            gs.ChangeEnemyPlanesLoop.paused = true;
+            this.anims.get('blast').pause();
+            gs.moveEnemyPlane.pause();
+            gs.moveEnemyPlane2.pause();
+            gs.moveEnemyPlane3.pause();
+            gs.moveEnemyPlane4.pause();
+            gs.blastSound.pause();
+            this.input.keyboard.removeListener('keyup-SPACE');
+            this.input.keyboard.removeListener('keyup-B');
+            gs.gunshot.pause();
+            this.physics.pause();  
+            gs.active = false;
+        });
+        this.input.keyboard.on('keydown-R', () => {
+          bugGenLoop.paused = false;
+          if (gs.score > 100) {
+            gs.bug2GenLoop.paused = false;
+          }
+          if (gs.score > 1000) {
+            gs.bug3GenLoop.paused = false;
+          }
+          healthBoxGenLoop.paused = false;
+          bombBoxGenLoop.paused = false;
+          unknownBoxGenLoop.paused = false;
+          addScoreBoxGenLoop.paused = false;
+          subtScoreBoxGenLoop.paused = false;  
+          gs.ChangeEnemyPlanesLoop.paused = false; 
+          if (gs.ep1.visible == true) {
+            enemyPlaneBltGenLoop.paused = false;
+            gs.moveEnemyPlane.resume();
+          }
+          if (gs.ep2.visible == true) {
+            enemyPlane2BombGenLoop.paused = false;
+            gs.moveEnemyPlane2.resume();
+          }
+          if (gs.ep3.visible == true) {
+            enemyPlane3BombGenLoop.paused = false;
+            gs.moveEnemyPlane3.resume();
+          }
+          if (gs.ep4.visible == true) {
+            enemyPlane4BltBombGenLoop.paused = false;
+            gs.moveEnemyPlane4.resume();
+          }
+          this.anims.get('blast').resume();
+          gs.blastSound.resume();
+          this.input.keyboard.addListener('keyup-SPACE', ()=>{
+            gs.blt.create(gs.hpX, gs.hpY, 'bullet').setScale(0.5).setOrigin(0.5, 1); 
+            gs.gunshot.play();       
+          });
+          this.input.keyboard.addListener('keyup-B', ()=>{
+            if (gs.NumOfHpBomb > 0) {
+            gs.hpbomb.create(gs.hpX, gs.hpY, 'hpbomb').setScale(0.5).setOrigin(0.5, 1);
+            gs.gunshot.play();    
+            gs.NumOfHpBomb -= 1;
+            }     
+          });
+          gs.gunshot.resume();
+          this.physics.resume();
+          gs.active = true;
+        });
+
+        endThisGame = () => {
+            bugGenLoop.destroy();
+            gs.bug2GenLoop.destroy();
+            gs.bug3GenLoop.destroy();
+            healthBoxGenLoop.destroy();
+            bombBoxGenLoop.destroy();
+            unknownBoxGenLoop.destroy();
+            addScoreBoxGenLoop.destroy();
+            subtScoreBoxGenLoop.destroy();
+            enemyPlaneBltGenLoop.destroy();
+            enemyPlane2BombGenLoop.destroy();
+            enemyPlane3BombGenLoop.destroy();
+            enemyPlane4BltBombGenLoop.destroy();
+            gs.ChangeEnemyPlanesLoop.destroy();
+            gs.blastSound.destroy();
+            this.input.keyboard.removeListener('keyup-SPACE');
+            this.input.keyboard.removeListener('keyup-B');
+            this.input.keyboard.removeListener('keydown-P');
+            this.input.keyboard.removeListener('keydown-R');
+            gs.gunshot.destroy();
+            this.anims.pauseAll();
+            gs.moveEnemyPlane.stop();
+            gs.moveEnemyPlane2.stop();
+            gs.moveEnemyPlane3.stop();
+            gs.moveEnemyPlane4.stop();
+            this.physics.pause();
+            gs.active = false;
+
+            this.add.text(180, 250, 'Game Over', { fontSize: '15px', fill: '#000000' });
+            this.add.text(152, 270, 'Click to Restart ' + gs.NumOfDS, { fontSize: '15px', fill: '#000000' });
+    
+		    // Add your code below:
+            this.input.on('pointerup', () =>{
+                gs.score = 0;
+                gs.planelife = 100;
+                gs.ep1Life = 30;
+                gs.ep2Life = 30;
+                gs.ep3Life = 30;
+                gs.ep4Life = 30;
+                gs.NumOfHpBomb = 20;
+                this.anims.resumeAll();
+    	        this.scene.restart();
+            });
+        }     
+
+        ChangeEnemyPlanes = () => {
+            gs.cepRND = (Math.floor(Math.random() * 4) +1);
+            if (gs.cepRND == 1) {
+                gs.ep1.setActive(true).setVisible(true);
+                gs.moveEnemyPlane.seek(0);
+                gs.moveEnemyPlane.play();
+                gs.moveEnemyPlane.resume();
+                enemyPlaneBltGenLoop.paused = false;
+                gs.BgLRect1.setVisible(true);
+                gs.WhiteLRect1.setVisible(true);
+                gs.LRect1.setVisible(true);
+                gs.ep1Life = 30;
+            } else if (gs.cepRND == 2) {
+                gs.ep2.setActive(true).setVisible(true);
+                gs.moveEnemyPlane2.seek(0);
+                gs.moveEnemyPlane2.play();
+                gs.moveEnemyPlane2.resume();
+                enemyPlane2BombGenLoop.paused = false;
+                gs.BgLRect2.setVisible(true);
+                gs.WhiteLRect2.setVisible(true);
+                gs.LRect2.setVisible(true);
+                gs.ep2Life = 30;
+            } else if (gs.cepRND == 3) {
+                gs.ep3.setActive(true).setVisible(true);
+                gs.moveEnemyPlane3.seek(0);
+                gs.moveEnemyPlane3.play();
+                gs.moveEnemyPlane3.resume();
+                enemyPlane3BombGenLoop.paused = false;
+                gs.BgLRect3.setVisible(true);
+                gs.WhiteLRect3.setVisible(true);
+                gs.LRect3.setVisible(true);
+                gs.ep3Life = 30;
+            } else if (gs.cepRND == 4) {
+                gs.ep4.setActive(true).setVisible(true);
+                gs.moveEnemyPlane4.seek(0);
+                gs.moveEnemyPlane4.play();
+                gs.moveEnemyPlane4.resume();
+                enemyPlane4BltBombGenLoop.paused = false;
+                gs.BgLRect4.setVisible(true);
+                gs.WhiteLRect4.setVisible(true);
+                gs.LRect4.setVisible(true);
+                gs.ep4Life = 30;
+            }
+            
+        }
+
+        ChangeEnemyPlanesLoopFunc = () => {
+        gs.ChangeEnemyPlanesLoop = this.time.addEvent({
+          delay: 10000, // ((Math.floor(Math.random() * 3) +1) * 15000),
+          callback: ChangeEnemyPlanes,
+          callbackScope: this,
+          loop: false
+        });
+        }
+        ChangeEnemyPlanesLoopFunc();
+      
+        // create cursor keys
+        gs.cursors = this.input.keyboard.createCursorKeys();
+        
+    }
+
+    function update()
+    {
+        // for heroplane movements
+        if (gs.cursors.left.isDown) {
+          gs.hp.setVelocityX(-200);
+        } else if (gs.cursors.right.isDown) {
+          gs.hp.setVelocityX(200);
+        }  else if (gs.cursors.up.isDown) {
+          gs.hp.setVelocityY(-200);
+        } else if (gs.cursors.down.isDown) {
+          gs.hp.setVelocityY(200);
+        } else {
+          gs.hp.setVelocityX(0);
+        }
+
+        if (gs.score > 100 && gs.active == true){
+            gs.bug2GenLoop.paused = false;
+        }
+        if (gs.score > 1000 && gs.active == true){
+            gs.bug3GenLoop.paused = false;
+        }
+
+        //location of HeroPlane(hp)
+        gs.hpX = gs.hp.x;
+        gs.hpY = gs.hp.y;
+
+        //location of Enemy Plane(ep1)
+        gs.ep1X = gs.ep1.x;
+        gs.ep1Y = gs.ep1.y;
+        gs.ep1.enableBody(true, gs.ep1X, gs.ep1Y, false, false);
+       
+       //location of Enemy Plane(ep2)
+        gs.ep2X = gs.ep2.x;
+        gs.ep2Y = gs.ep2.y;
+        gs.ep2.enableBody(true, gs.ep2X, gs.ep2Y, false, false);
+
+        //location of Enemy Plane(ep3)
+        gs.ep3X = gs.ep3.x;
+        gs.ep3Y = gs.ep3.y;
+        gs.ep3.enableBody(true, gs.ep3X, gs.ep3Y, false, false);
+
+        //location of Enemy Plane(ep4)
+        gs.ep4X = gs.ep4.x;
+        gs.ep4Y = gs.ep4.y;
+        gs.ep4.enableBody(true, gs.ep4X, gs.ep4Y, false, false);
+       
+
+        // move enemy score according to enemy position(ep1)
+        gs.BgLRect1.x = gs.ep1.x;
+        gs.WhiteLRect1.x = gs.ep1.x-15;
+        gs.LRect1.x = gs.ep1.x-15;
+
+        // move enemy score according to enemy position(ep2)
+        gs.BgLRect2.x = gs.ep2.x;
+        gs.WhiteLRect2.x = gs.ep2.x-15;
+        gs.LRect2.x = gs.ep2.x-15;
+
+        // move enemy score according to enemy position(ep3)
+        gs.BgLRect3.x = gs.ep3.x;
+        gs.WhiteLRect3.x = gs.ep3.x-15;
+        gs.LRect3.x = gs.ep3.x-15;
+
+        // move enemy score according to enemy position(ep4)
+        gs.BgLRect4.x = gs.ep4.x;
+        gs.WhiteLRect4.x = gs.ep4.x-15;
+        gs.LRect4.x = gs.ep4.x-15;
+
+        //change width and color based on enemy plane life (ep1)
+        gs.LRect1.displayWidth = gs.ep1Life;
+        if (gs.ep1Life > 20) {
+            gs.LRect1.setFillStyle(0x03fc20);
+        } else if (gs.ep1Life > 10 && gs.ep1Life <= 20) {
+            gs.LRect1.setFillStyle(0xffff00);
+        } else if (gs.ep1Life <= 10) {
+            gs.LRect1.setFillStyle(0xff0000);
+        }
+
+        //change width and color based on enemy plane life (ep2)
+        gs.LRect2.displayWidth = gs.ep2Life;
+        if (gs.ep2Life > 20) {
+            gs.LRect2.setFillStyle(0x03fc20);
+        } else if (gs.ep2Life > 10 && gs.ep2Life <= 20) {
+            gs.LRect2.setFillStyle(0xffff00);
+        } else if (gs.ep2Life <= 10) {
+            gs.LRect2.setFillStyle(0xff0000);
+        }
+
+        //change width and color based on enemy plane life (ep3)
+        gs.LRect3.displayWidth = gs.ep3Life;
+        if (gs.ep3Life > 20) {
+            gs.LRect3.setFillStyle(0x03fc20);
+        } else if (gs.ep3Life > 10 && gs.ep3Life <= 20) {
+            gs.LRect3.setFillStyle(0xffff00);
+        } else if (gs.ep3Life <= 10) {
+            gs.LRect3.setFillStyle(0xff0000);
+        }
+
+        //change width and color based on enemy plane life (ep4)
+        gs.LRect4.displayWidth = gs.ep4Life;
+        if (gs.ep4Life > 20) {
+            gs.LRect4.setFillStyle(0x03fc20);
+        } else if (gs.ep4Life > 10 && gs.ep4Life <= 20) {
+            gs.LRect4.setFillStyle(0xffff00);
+        } else if (gs.ep4Life <= 10) {
+            gs.LRect4.setFillStyle(0xff0000);
+        }
+
+
+        //make bullet move upwards
+        gs.blt.setVelocityY(-1000);
+
+        //make hpbomb move upwards
+        gs.hpbomb.setVelocityY(-1000);
+
+        //make bullet move downwards at high speed
+        gs.enemyPlaneBlt.setVelocityY(1000);
+
+        //make bomb move downwards at high speed
+        gs.enemyPlane2Bomb.setVelocityY(1000);
+
+         //make bomb move downwards at high speed
+         gs.enemyPlane3Bomb.setVelocityY(1000);
+
+        //make bomb move downwards at high speed
+          gs.enemyPlane4Blt.setVelocityY(1000);
+
+
+        //make bomb move downwards at high speed
+          gs.enemyPlane4Bomb1.setVelocityY(1000);
+
+        //make bomb move downwards at high speed
+           gs.enemyPlane4Bomb2.setVelocityY(1000);
+
+        //change width and color based on plane life 
+        gs.LRect.displayWidth = gs.planelife;
+        if (gs.planelife > 60) {
+            gs.LRect.setFillStyle(0x03fc20);
+        } else if (gs.planelife > 30 && gs.planelife <= 60) {
+            gs.LRect.setFillStyle(0xffff00);
+        } else if (gs.planelife <= 30) {
+            gs.LRect.setFillStyle(0xff0000);
+        }
+
+        // collect and destroy used blast
+        gs.collectNonVisibleBlast = [];
+        gs.bombBlast.children.iterate(function (child) {           
+            if (child.visible == false && child.anims.isPlaying == false){
+                gs.collectNonVisibleBlast.push(child);
+            }
+          });
+          gs.collectNonVisibleBlastLength = gs.collectNonVisibleBlast.length;
+          for(let k=0; k < gs.collectNonVisibleBlastLength;k++){
+            gs.collectNonVisibleBlast[gs.collectNonVisibleBlastLength - (k + 1)].destroy(true, true);
+        }
+
+        // to destroy game objects that are unused and outside of game world
+        var unusedGameObjects = [];
+        var unusedGameObjectsgrp = [gs.blt, gs.hpbomb, gs.bugs, gs.bugs2, gs.bugs3, gs.healthBox, gs.bombBox, gs.unknownBox, gs.addScoreBox, gs.subtScoreBox, gs.enemyPlaneBlt, gs.enemyPlane2Bomb, gs.enemyPlane3Bomb, gs.enemyPlane4Blt, gs.enemyPlane4Bomb1, gs.enemyPlane4Bomb2];
+        for (let i=0; i < unusedGameObjectsgrp.length; i++) {
+            unusedGameObjectsgrp[i].children.iterate(function (child) {
+                if ((child.y > config.height) || (child.y < 0)){
+                    unusedGameObjects.push(child);
+                }
+            });
+        }
+        for (let i = (unusedGameObjects.length -1); i > -1; i--){
+            unusedGameObjects[i].destroy();
+            gs.NumOfDS += 1;
+        }
+        
+    }
+    
+    </script>
+
+</body>
+</html>  
